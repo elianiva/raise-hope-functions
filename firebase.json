@@ -2,7 +2,7 @@
   "functions": [
     {
       "source": "auth-functions",
-      "codebase": "auth-functions",
+      "codebase": "default",
       "ignore": [
         "node_modules",
         ".git",
@@ -14,21 +14,5 @@
         "npm --prefix \"$RESOURCE_DIR\" run build"
       ]
     }
-  ],
-  "emulators": {
-    "auth": {
-      "port": 9099
-    },
-    "functions": {
-      "port": 5001
-    },
-    "firestore": {
-      "port": 8080,
-      "host": "0.0.0.0"
-    },
-    "ui": {
-      "enabled": true
-    },
-    "singleProjectMode": true
-  }
+  ]
 }

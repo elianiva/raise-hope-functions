@@ -28,13 +28,5 @@ module.exports = {
     "quotes": ["error", "double"],
     "import/no-unresolved": 0,
     "indent": ["error", 2],
-    // disable max-len
-    "max-len": 0,
-    // disable no-explicit-any
-    "@typescript-eslint/no-explicit-any": 0,
-    // disable no non-null assertion
-    "@typescript-eslint/no-non-null-assertion": 0,
-    // disable @typescript-eslint/no-var-requires
-    "@typescript-eslint/no-var-requires": 0,
   },
 };

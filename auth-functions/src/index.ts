@@ -1,38 +1,34 @@
 import * as admin from "firebase-admin";
 import {getAuth} from "firebase-admin/auth";
 import * as functions from "firebase-functions";
-import {institutionRegistrationSchema, volunteerRegistrationSchema} from "./schemas";
-import Joi = require("joi");
-
-const serviceAccount = require("../serviceAccount.json");
+import {
+  institutionRegistrationSchema,
+  volunteerRegistrationSchema,
+} from "./schemas";
+import * as serviceAccount from "../account-private-key.json";
+import {z} from "zod";
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
-
-exports.helloWorld = functions.https.onRequest((request, response) => {
-  functions.logger.info("Hello logs!", {structuredData: true});
-  response.send("Hello from Firebase!");
+  credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
 });
 
 exports.registerVolunteer = functions.https.onCall(async (data) => {
   try {
-    const schema = Joi.object({
-      ...volunteerRegistrationSchema,
-      password: Joi.string().required(),
+    const schema = volunteerRegistrationSchema.extend({
+      password: z.string(),
     });
 
-    const {error, ...validated} = schema.validate(data);
+    const parsed = schema.safeParse(data);
 
-    if (error) {
+    if (!parsed.success) {
       return {
-        error: error.details[0].message,
+        error: parsed.error.issues[0].message,
       };
     }
 
-    const {password, ...volunteer} = validated.value;
+    const {password, ...volunteer} = parsed.data;
 
-    // // create the user
+    // create the user
     const user = await getAuth().createUser({
       email: volunteer.email,
       password: password,
@@ -40,15 +36,21 @@ exports.registerVolunteer = functions.https.onCall(async (data) => {
       // TODO: sanitize phone number to comply with E.164
     });
 
-    functions.logger.info(`user(volunteer) created: ${user.uid}`, {structuredData: true});
+    functions.logger.info(`user(volunteer) created: ${user.uid}`, {
+      structuredData: true,
+    });
 
-    // // set custom claims on the user
+    // set custom claims on the user
     await admin.auth().setCustomUserClaims(user.uid, {
       role: "volunteer",
     });
 
     // store additional data in the database
-    await admin.firestore().collection("volunteers").doc(user.uid).set(volunteer);
+    await admin
+      .firestore()
+      .collection("volunteers")
+      .doc(user.uid)
+      .set(volunteer);
 
     const token = await admin.auth().createCustomToken(user.uid);
 
@@ -60,29 +62,29 @@ exports.registerVolunteer = functions.https.onCall(async (data) => {
       token,
       error: null,
     };
-  } catch (error: Error | any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : error;
     return {
-      error: error?.message || error,
+      error: message,
     };
   }
 });
 
 exports.registerInstitution = functions.https.onCall(async (data) => {
   try {
-    const schema = Joi.object({
-      ...institutionRegistrationSchema,
-      password: Joi.string().required(),
+    const schema = institutionRegistrationSchema.extend({
+      password: z.string(),
     });
 
-    const {error, ...validated} = schema.validate(data);
+    const parsed = schema.safeParse(data);
 
-    if (error) {
+    if (!parsed.success) {
       return {
-        error: error.details[0].message,
+        error: parsed.error.issues[0].message,
       };
     }
 
-    const {password, ...institution} = validated.value;
+    const {password, ...institution} = parsed.data;
 
     // create the user
     const user = await getAuth().createUser({
@@ -92,7 +94,9 @@ exports.registerInstitution = functions.https.onCall(async (data) => {
       // TODO: sanitize phone number to comply with E.164
     });
 
-    functions.logger.info(`user(institution) created: ${user.uid}`, {structuredData: true});
+    functions.logger.info(`user(institution) created: ${user.uid}`, {
+      structuredData: true,
+    });
 
     // set custom claims on the user
     await admin.auth().setCustomUserClaims(user.uid, {
@@ -100,7 +104,11 @@ exports.registerInstitution = functions.https.onCall(async (data) => {
     });
 
     // store additional data in the database
-    await admin.firestore().collection("institutions").doc(user.uid).set(institution);
+    await admin
+      .firestore()
+      .collection("institutions")
+      .doc(user.uid)
+      .set(institution);
 
     const token = await admin.auth().createCustomToken(user.uid);
 
@@ -112,95 +120,105 @@ exports.registerInstitution = functions.https.onCall(async (data) => {
       token,
       error: null,
     };
-  } catch (error: Error | any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : error;
     return {
-      error: error?.message || error,
+      error: message,
     };
   }
 });
 
-exports.registerVolunteerWithCurrentUser = functions.https.onCall(async (data, context) => {
-  try {
-    const schema = Joi.object(volunteerRegistrationSchema);
+exports.registerVolunteerWithCurrentUser = functions.https.onCall(
+  async (data, context) => {
+    try {
+      const parsed = volunteerRegistrationSchema.safeParse(data);
 
-    const {error, ...validated} = schema.validate(data);
+      if (!parsed.success) {
+        return {
+          error: parsed.error.issues[0].message,
+        };
+      }
 
-    if (error) {
+      if (context.auth === null) {
+        return {
+          error: "User is not authenticated",
+        };
+      }
+
+      const user = await admin.auth().getUser(context.auth!.uid);
+
+      await admin.auth().setCustomUserClaims(user.uid, {
+        role: "volunteer",
+      });
+
+      // store additional data in the database
+      await admin
+        .firestore()
+        .collection("volunteers")
+        .doc(user.uid)
+        .set(parsed.data);
+
       return {
-        error: error.details[0].message,
+        message: "Volunteer created successfully",
+        uuid: user.uid,
+        email: user.email,
+        role: "volunteer",
+        error: null,
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : error;
+      return {
+        error: message,
       };
     }
-
-    if (context.auth === null) {
-      return {
-        error: "User is not authenticated",
-      };
-    }
-
-    const user = await admin.auth().getUser(context.auth!.uid);
-
-    await admin.auth().setCustomUserClaims(user.uid, {
-      role: "volunteer",
-    });
-
-    // store additional data in the database
-    await admin.firestore().collection("volunteers").doc(user.uid).set(validated.value);
-
-    return {
-      message: "Volunteer created successfully",
-      uuid: user.uid,
-      email: user.email,
-      role: "volunteer",
-      error: null,
-    };
-  } catch (error: Error | any) {
-    return {
-      error: error?.message || error,
-    };
   }
-});
+);
 
-exports.registerInstitutionWithCurrentUser = functions.https.onCall(async (data, context) => {
-  try {
-    const schema = Joi.object(institutionRegistrationSchema);
+exports.registerInstitutionWithCurrentUser = functions.https.onCall(
+  async (data, context) => {
+    try {
+      const parsed = institutionRegistrationSchema.safeParse(data);
 
-    const {error, ...validated} = schema.validate(data);
+      if (!parsed.success) {
+        return {
+          error: parsed.error.issues[0].message,
+        };
+      }
 
-    if (error) {
+      if (context.auth === null) {
+        return {
+          error: "User is not authenticated",
+        };
+      }
+
+      const user = await admin.auth().getUser(context.auth!.uid);
+
+      await admin.auth().setCustomUserClaims(user.uid, {
+        role: "institution",
+      });
+
+      // store additional data in the database
+      await admin
+        .firestore()
+        .collection("institutions")
+        .doc(user.uid)
+        .set(parsed.data);
+
       return {
-        error: error.details[0].message,
+        message: "Institution created successfully",
+        uuid: user.uid,
+        email: user.email,
+        role: "institution",
+        error: null,
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : error;
+      return {
+        error: message,
       };
     }
-
-    if (context.auth === null) {
-      return {
-        error: "User is not authenticated",
-      };
-    }
-
-    const user = await admin.auth().getUser(context.auth!.uid);
-
-    await admin.auth().setCustomUserClaims(user.uid, {
-      role: "institution",
-    });
-
-    // store additional data in the database
-    await admin.firestore().collection("institutions").doc(user.uid).set(validated.value);
-
-    return {
-      message: "Institution created successfully",
-      uuid: user.uid,
-      email: user.email,
-      role: "institution",
-      error: null,
-    };
-  } catch (error: Error | any) {
-    return {
-      error: error?.message || error,
-    };
   }
-});
-
+);
 
 exports.userDetails = functions.https.onCall(async (data, context) => {
   // check if the user is authenticated

@@ -1,26 +1,32 @@
-const Joi = require("joi");
+import {z} from "zod";
 
-export const volunteerRegistrationSchema = {
-  name: Joi.string().required(),
-  email: Joi.string().email().required(),
-  phone: Joi.string().required(),
-  address: Joi.string().required(),
-  availability: Joi.array().items(Joi.number()).required(),
-  preferedTime: Joi.array().items(Joi.string()).required(),
-  interests: Joi.array().items(Joi.string()).required(),
-};
+export const volunteerRegistrationSchema = z.object({
+  name: z.string(),
+  email: z.string().email(),
+  phone: z.string(),
+  address: z.string(),
+  availability: z.array(z.number()),
+  preferredTime: z.array(z.string()),
+  interests: z.array(z.string()),
+});
+export type VolunteerRegistrationSchema = z.infer<
+  typeof volunteerRegistrationSchema
+>;
 
-export const institutionRegistrationSchema = {
-  name: Joi.string().required(),
-  email: Joi.string().email().required(),
-  website: Joi.string(),
-  phoneNumber: Joi.string().required(),
-  country: Joi.string().required(),
-  province: Joi.string().required(),
-  city: Joi.string().required(),
-  address: Joi.string().required(),
-  postalCode: Joi.string().required(),
-  organizationType: Joi.string().required(),
-  organizationSize: Joi.string().required(),
-  typeOfHelp: Joi.array().items(Joi.string()).required(),
-};
+export const institutionRegistrationSchema = z.object({
+  name: z.string(),
+  email: z.string().email(),
+  website: z.string(),
+  phoneNumber: z.string(),
+  country: z.string(),
+  province: z.string(),
+  city: z.string(),
+  address: z.string(),
+  postalCode: z.string(),
+  organizationType: z.string(),
+  organizationSize: z.string(),
+  typeOfHelp: z.array(z.string()),
+});
+export type InstitutionRegistrationSchema = z.infer<
+  typeof institutionRegistrationSchema
+>;
