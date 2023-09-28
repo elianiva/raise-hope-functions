@@ -1,12 +1,12 @@
 import * as admin from "firebase-admin";
-import {getAuth} from "firebase-admin/auth";
+import { getAuth } from "firebase-admin/auth";
 import * as functions from "firebase-functions";
 import {
   institutionRegistrationSchema,
   volunteerRegistrationSchema,
 } from "./schemas";
 import * as serviceAccount from "../account-private-key.json";
-import {z} from "zod";
+import { z } from "zod";
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
@@ -26,7 +26,7 @@ exports.registerVolunteer = functions.https.onCall(async (data) => {
       };
     }
 
-    const {password, ...volunteer} = parsed.data;
+    const { password, ...volunteer } = parsed.data;
 
     // create the user
     const user = await getAuth().createUser({
@@ -84,7 +84,7 @@ exports.registerInstitution = functions.https.onCall(async (data) => {
       };
     }
 
-    const {password, ...institution} = parsed.data;
+    const { password, ...institution } = parsed.data;
 
     // create the user
     const user = await getAuth().createUser({
